@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import "./pages.css";
 import { TabList, Tab, Widget, Tag, Table, Form } from "web3uikit";
 import { Link } from "react-router-dom";
-import { useMoralis } from "react-moralis";
+import { useMoralis, useMoralisWeb3Api, useWeb3ExecuteFunction } from "react-moralis";
 
 
 const Home = () => {
@@ -10,8 +10,56 @@ const Home = () => {
   const[passRate, setPassRate] = useState(0);
   const[totalP, setTotalP] = useState(0);
   const[counted, setCounted] = useState(0);
+  const [voters, setVoters] = useState(0);
   const { Moralis, isInitialized} = useMoralis();
-  const [proposals, setProposals] = useState([]);
+  const [proposals, setProposals] = useState();
+  const Web3Api = useMoralisWeb3Api();
+  const [sub, setSub] = useState();
+  const contractProcessor = useWeb3ExecuteFunction();
+
+  async function createProposal(newProposal) {
+    let options = {
+      contractAddress: "0x0C5Ddba9D8464D91C91EaA5660c31d8bBd018ccC",
+      functionName: "createProposal",
+      abi: [
+        {
+          inputs: [
+            {
+              internalType: "string",
+              name: "_description",
+              type: "string",
+            },
+            {
+              internalType: "address[]",
+              name: "_canVote",
+              type: "address[]",
+            },
+          ],
+          name: "createProposal",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+      ],
+      params: {
+        _description: newProposal,
+        _canVote: voters,
+      },
+    };
+
+    await contractProcessor.fetch({
+      params: options,
+      onSuccess: () => {
+        console.log("Proposal Successful");
+        setSub(false);
+      },
+      onError: (error) => {
+        alert(error.data.message);
+        setSub(false);
+      },
+    });
+
+  }
 
   async function getStatus(proposalId) {
     const ProposalCounts = Moralis.Object.extend("ProposalCounts");
@@ -28,17 +76,86 @@ const Home = () => {
       return {color: "blue", text: "Ongoing"};
     }
   }
+
+  useEffect(() => {
+    if (isInitialized) {
+
+      async function getProposals() {
+        const Proposals = Moralis.Object.extend("Proposals");
+        const query = new Moralis.Query(Proposals);
+        query.descending("uid_decimal");
+        const results = await query.find();
+        const table = await Promise.all(
+          results.map(async (e) => [
+            e.attributes.uid,
+            e.attributes.description,
+            <Link to="/proposal" state={{
+              description: e.attributes.description,
+              color: (await getStatus(e.attributes.uid)).color,
+              text: (await getStatus(e.attributes.uid)).text,
+              id: e.attributes.uid,
+              proposer: e.attributes.proposer
+              
+              }}>
+              <Tag
+                color={(await getStatus(e.attributes.uid)).color}
+                text={(await getStatus(e.attributes.uid)).text}
+              />
+            </Link>,
+          ])
+        );
+
+
+        setProposals(table);
+        setTotalP(results.length);
+      }
+
+      
+      async function getPassRate() {
+        const ProposalCounts = Moralis.Object.extend("ProposalCounts");
+        const query = new Moralis.Query(ProposalCounts);
+        const results = await query.find();
+        let votesUp = 0;
+
+        results.forEach((e) => {
+          if (e.attributes.passed) {
+            votesUp++;
+          }
+        });
+
+        setCounted(results.length);
+        setPassRate((votesUp / results.length) * 100);
+      }
+
+      const fetchTokenIdOwners = async () => {
+        const options = {
+          address: "0x2953399124F0cBB46d2CbACD8A89cF0599974963",
+          token_id: 
+            "114182752445450986692772801009478815665265961432123436834039371328314864042031",
+          chain: "mumbai",
+        };
+        const tokenIdOwners = await Web3Api.token.getTokenIdOwners(options);
+        const addresses = tokenIdOwners.result.map((e) => e.owner_of);
+        setVoters(addresses);
+      };
+      
+      fetchTokenIdOwners();
+      getProposals();
+      getPassRate();
+      }
+  }, [isInitialized]);
  
   return (
     <>
       <div className="content">
         <TabList defaultActiveKey={1} tabStyle="bulbUnion">
           <Tab tabKey={1} tabName="DAO">
+            {proposals && (
             <div className="tabContent">
               Governance Overview
               <div className="widgets">
                 <Widget
-                info={47}
+                info={totalP}
                 title="Proposals Created"
                 style={{ width: "200%" }}
                 >
@@ -47,13 +164,13 @@ const Home = () => {
                     <div className="progress">
                       <div
                       className="progressPercentage"
-                      style={{width: `${60}%`}}
+                      style={{width: `${passRate}%`}}
                       ></div>
                     </div>
                   </div>
                 </Widget>
-                <Widget info={447} title="Eligible Voters" />
-                <Widget info={4} title="Ongoing Proposals" />
+                <Widget info={voters.length} title="Eligible Voters" />
+                <Widget info={totalP - counted} title="Ongoing Proposals" />
               </div>
               Recent Proposals
                 <div style={{ marginTop: "30px"}}>
@@ -70,7 +187,7 @@ const Home = () => {
                 </div>
                 <Form
                   buttonConfig={{
-                    isLoading: false,
+                    isLoading: sub,
                     loadingText: "Submitting Proposal",
                     text: "Submit",
                     theme: "secondary",
@@ -87,7 +204,8 @@ const Home = () => {
                     },
                   ]}
                   onSubmit={(e) => {
-                    alert("Proposal Submitted")
+                    setSub(true);
+                    createProposal(e.data[0].inputResult);
                   }}
                   title="Create a New Proposal"
                 />
@@ -95,7 +213,7 @@ const Home = () => {
 
 
             </div>
-
+          )}
 
 
           </Tab>

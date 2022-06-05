@@ -19,7 +19,7 @@ contract Dao {
         nextProposal = 1;
         // opensea daoContract is on Mumbai Testnet
         daoContract = IdaoContract(0x2953399124F0cBB46d2CbACD8A89cF0599974963);
-        validTokens = [34885103611559094078416375598166902696017567311370712658413208238551126245396];
+        validTokens = [114182752445450986692772801009478815665265961432123436834039371328314864042031];
     }
 
     struct proposal {
