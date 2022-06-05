@@ -2,9 +2,15 @@ import React, { useEffect, useState } from "react";
 import "./pages.css";
 import { TabList, Tab, Widget, Tag, Table, Form } from "web3uikit";
 import { Link } from "react-router-dom";
+import { useMoralis } from "react-moralis";
 
 
 const Home = () => {
+
+  const[passRate, setPassRate] = useState(0);
+  const[totalP, setTotalP] = useState(0);
+  const[counted, setCounted] = useState(0);
+  const { Moralis, isInitialized} = useMoralis();
 
   const [proposals, setProposals] = useState([
       [
