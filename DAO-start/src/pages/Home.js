@@ -11,37 +11,23 @@ const Home = () => {
   const[totalP, setTotalP] = useState(0);
   const[counted, setCounted] = useState(0);
   const { Moralis, isInitialized} = useMoralis();
+  const [proposals, setProposals] = useState([]);
 
-  const [proposals, setProposals] = useState([
-      [
-        1,
-        <div>Should we start a web3 spicy chicken sandwich chain?</div>,
-        <Tag color="green" text="Passed" />,
-      ],
-      [
-        2,
-        "Should we accept Truist's offer of 200 ETH for our DAO?",
-        <Link to="/proposal" state={"hello"}>
-          <Tag color="red" text="Rejected" />
-        </Link>,
-      ],
-      [
-        3,
-        "Do you want a web3 3d printing tutorial?",
-        <Tag color="blue" text="Ongoing" />,
-      ],
-      [
-        4,
-        "Are you interested in ReFi and impact DAO tutorials?",
-        <Tag color="blue" text="Ongoing" />,
-      ],
-      [
-        5,
-        "Would you attend a Developer_DAO meetup in DC?",
-        <Tag color="blue" text="Ongoing" />,
-      ],
-  ]
-  );
+  async function getStatus(proposalId) {
+    const ProposalCounts = Moralis.Object.extend("ProposalCounts");
+    const query = new Moralis.Query(ProposalCounts);
+    query.equalTo("uid", proposalId);
+    const result = await query.first();
+    if (result !== undefined) {
+      if (result.attributes.passed) {
+        return { color: "green", text: "Passed"};
+      } else {
+        return {color: "red", text: "Rejected"};
+      }
+    } else {
+      return {color: "blue", text: "Ongoing"};
+    }
+  }
  
   return (
     <>
